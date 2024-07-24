@@ -44,20 +44,20 @@ ui <- fluidPage(
       selectInput(inputId = "xvar",
                   label = "X Variable:",
                   choices = c("Age", "Sex", "NoseBlack",	"PawCircumference", "Weight", "Size"),
-                  selected = "Water",
+                  selected = "Size",
                   multiple = FALSE),
       
       
       selectInput(inputId = "yvar",
                   label = "Y Variable:",
                   choices = c("NoseBlack", "PawCircumference", "Weight", "Size", "Age"),
-                  selected = "Yield",
+                  selected = "Weight",
                   multiple = FALSE),
       
       selectInput(inputId = "color",
                   label = "Color by",
                   choices = c("None", "Age", "Sex", "NoseBlack",	"PawCircumference", "Weight", "Size"),
-                  selected = "None",
+                  selected = "Sex",
                   multiple = FALSE),
       
       selectInput(inputId = "facet",
@@ -244,6 +244,8 @@ server <- function(input, output, session) {
     } else {
       myplot <- myplot # no model
     } # Add model
+    
+    myplot <- myplot + theme(text = element_text(size = 18))
     
    # Returning visual
     return(myplot)
