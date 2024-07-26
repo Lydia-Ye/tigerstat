@@ -27,7 +27,11 @@ data.all <- data.all %>%
   filter(Age < 250 & Age > 0 &
          Size < 250 & Size > 0 &
          Weight < 750 & Weight > 0 &
+         NoseBlack < 1 & NoseBlack > 0 &
          PawCircumference < 250 & PawCircumference < 250)
+
+data.all <- data.all %>%
+  mutate(ArcsineNoseBlack = asin(sqrt(NoseBlack)))
 
 
 # Get group IDs and player IDs
@@ -41,7 +45,7 @@ all_players <- sort(unique(data.all$PlayerID))
 
 # Define UI for the app
 ui <- fluidPage(
-  titlePanel("Tigerstat Visualization"),
+  titlePanel("Tiger Stat and Tiger Sampling Visualization"),
   sidebarLayout(
     sidebarPanel(
       selectInput("groupID", 
@@ -60,20 +64,20 @@ ui <- fluidPage(
       
       selectInput(inputId = "xvar",
                   label = "X Variable:",
-                  choices = c("Age", "Sex", "NoseBlack",	"PawCircumference", "Weight", "Size", "Region"),
+                  choices = c("Age", "Sex", "NoseBlack", "ArcsineNoseBlack",	"PawCircumference", "Weight", "Size", "Region"),
                   selected = "Size",
                   multiple = FALSE),
       
       
       selectInput(inputId = "yvar",
                   label = "Y Variable:",
-                  choices = c("NoseBlack", "PawCircumference", "Weight", "Size", "Age"),
+                  choices = c("NoseBlack", "ArcsineNoseBlack", "PawCircumference", "Weight", "Size", "Age"),
                   selected = "Weight",
                   multiple = FALSE),
       
       selectInput(inputId = "color",
                   label = "Color by",
-                  choices = c("None", "Age", "Sex", "Region" , "NoseBlack",	"PawCircumference", "Weight", "Size"),
+                  choices = c("None", "Age", "Sex", "Region" , "NoseBlack", "ArcsineNoseBlack",	"PawCircumference", "Weight", "Size"),
                   selected = "Sex",
                   multiple = FALSE),
       
@@ -85,7 +89,7 @@ ui <- fluidPage(
       
       selectInput(inputId = "model",
                   label = "Statistical Model:",
-                  choices = c("None", "Linear", "Quadratic", "Arcsine" ),
+                  choices = c("None", "Linear", "Quadratic"),
                   multiple = FALSE,
                   selectize = TRUE,
                   selected = "None"),
@@ -140,12 +144,6 @@ server <- function(input, output, session) {
     XVariable <- plotData %>% pull(input$xvar)
     YVariable <- plotData %>% pull(input$yvar)
     
-    if (input$model == "Arcsine") {
-      # Ensure YVariable is non-negative and in the range [0, 1]
-      YVariable <- pmin(pmax(YVariable, 0), 1)
-      YVariable <- asin(sqrt(YVariable))
-    }
-    
     
     # build model
     if ((input$model != "None") && (input$color != "None")) {
@@ -159,10 +157,8 @@ server <- function(input, output, session) {
             myModel <- lm(YVariable ~ XVariable + ColorVariable)
           } else if (input$model == "Quadratic") {
             myModel <- lm(YVariable ~ XVariable + I(XVariable^2) + ColorVariable)
-          } else if (input$model == "Arcsine") {
-            myModel <- lm(YVariable ~ poly(XVariable, 2) + ColorVariable)
-          }
-          # Adding predicted values column for Linear/Quadratic/Arcsine
+          } 
+          # Adding predicted values column for Linear/Quadratic
           plotData <- cbind(plotData, predict(myModel, interval = "confidence"))
           
           # Facet option is NOT none
@@ -175,22 +171,15 @@ server <- function(input, output, session) {
             myModel <- lm(YVariable ~ XVariable + ColorVariable + FacetVariable)
           } else if (input$model == "Quadratic") {
             myModel <- lm(YVariable ~ XVariable + I(XVariable^2) + ColorVariable + FacetVariable)
-          } else if (input$model == "Arcsine") {
-            myModel <- lm(YVariable ~ poly(XVariable, 2) + ColorVariable + FacetVariable)
           }
           
-          # Adding predicted values column for Linear/Quadratic/Arcsine
+          # Adding predicted values column for Linear/Quadratic
           plotData <- cbind(plotData, predict(myModel, interval = "confidence"))
           
         }
       }
     } # build model
-    
-    
-    if (input$model == "Arcsine") {
-      plotData <- cbind(plotData, predict(lm(YVariable ~ poly(XVariable, 2)), interval = "confidence"))
-    }
-    
+
     
     # Base plot
     myplot <- ggplot(data = plotData, aes_string(x = input$xvar, y = input$yvar)) +
@@ -220,10 +209,7 @@ server <- function(input, output, session) {
         # Model Option - Quadratic
       } else if (input$model == "Quadratic") {
         myplot <- myplot + stat_smooth(method = "lm", formula = y ~ x + I(x^2), se = FALSE)
-        # Model Option - Arcsine
-      } else if (input$model == "Arcsine") {
-        myplot <- myplot + geom_line(aes(y = fit), size = 1)
-      }
+      } 
       
       # If remove interaction checkbox is selected
     } else if (input$model != "None" && input$interaction == TRUE) {
