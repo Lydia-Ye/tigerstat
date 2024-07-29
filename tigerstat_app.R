@@ -24,11 +24,11 @@ data.all$Sex <- as.factor(data.all$Sex)
 
 # Filter out outliers
 data.all <- data.all %>%
-  filter(Age < 25 & Age > 0 &
-         Size < 250 & Size > 0 &
-         Weight < 750 & Weight > 0 &
-         NoseBlack < 1 & NoseBlack > 0 &
-         PawCircumference < 250 & PawCircumference < 250)
+  filter(Age < 250 & Age > 0 &
+           Size < 250 & Size > 0 &
+           Weight < 750 & Weight > 0 &
+           NoseBlack < 1 & NoseBlack > 0 &
+           PawCircumference < 250 & PawCircumference < 250)
 
 data.all <- data.all %>%
   mutate(ArcsineNoseBlack = asin(sqrt(NoseBlack)))
@@ -105,14 +105,23 @@ ui <- fluidPage(
     ),
     
     mainPanel(
-      plotOutput(outputId = "Plot"),
-      conditionalPanel(
-        condition = "input.showCode == true",
-        h4("Code for Data Cleaning:"),
-        verbatimTextOutput("filterCode"),
-        h4("Code for Data Visualizations:"),
-        verbatimTextOutput("plotCode")
-        
+      tabsetPanel(
+        tabPanel("Plot",
+                 plotOutput(outputId = "Plot"),
+                 conditionalPanel(
+                   condition = "input.showCode == true",
+                   h4("Code for Data Cleaning:"),
+                   verbatimTextOutput("filterCode"),
+                   h4("Code for Data Visualizations:"),
+                   verbatimTextOutput("plotCode")
+                 )),
+        tabPanel("Residuals",
+                 plotOutput(outputId = "Residuals"),
+                 conditionalPanel(
+                   condition = "input.showCode == true",
+                   h4("Code for Residual Plots:"),
+                   verbatimTextOutput("residualsCode")
+                 ))
       )
     )
   )
@@ -139,7 +148,7 @@ server <- function(input, output, session) {
     
     plotData
   })
-
+  
   # Generate plot --------------------------------------------------------------
   output$Plot <- renderPlot({
     plotData <- filteredData()  
@@ -189,7 +198,7 @@ server <- function(input, output, session) {
         }
       }
     } # build model
-
+    
     
     # Base plot
     myplot <- ggplot(data = plotData, aes_string(x = input$xvar, y = input$yvar)) +
@@ -231,7 +240,7 @@ server <- function(input, output, session) {
     
     myplot <- myplot + theme(text = element_text(size = 18))
     
-   # Returning visual
+    # Returning visual
     return(myplot)
   })
   
@@ -353,6 +362,100 @@ server <- function(input, output, session) {
     req(plotCode())
     plotCode()  # Display the dynamically generated R code for plotting
   }) 
+  
+  residualsCode <- reactive({
+    req(input$xvar, input$yvar, input$model)
+    
+    xvar <- input$xvar
+    yvar <- input$yvar
+    model_code <- ""
+    
+    if (input$model == "Linear") {
+      model_code <- sprintf("lm(%s ~ %s, data = filteredData)", yvar, xvar)
+    } else if (input$model == "Quadratic") {
+      model_code <- sprintf("lm(%s ~ poly(%s, 2), data = filteredData)", yvar, xvar)
+    }
+    
+    code <- paste0(
+      "# Fit the model\n",
+      "myModel <- ", model_code, "\n\n",
+      "# Calculate residuals\n",
+      "filteredData$residuals <- resid(myModel)\n\n",
+      "# Plotting with ggplot2\n",
+      "p1 <- ggplot(filteredData, aes(x = residuals", if (input$color != "None") sprintf(", color = %s", input$color), ")) +\n",
+      "  geom_histogram(binwidth = 0.5) +\n",
+      "  ggtitle('Histogram of Residuals') +\n",
+      "  xlab('Residuals')\n\n",
+      "p2 <- ggplot(filteredData, aes(sample = residuals", if (input$color != "None") sprintf(", color = %s", input$color), ")) +\n",
+      "  stat_qq() +\n",
+      "  stat_qq_line() +\n",
+      "  ggtitle('Normal Q-Q Plot of Residuals')\n\n",
+      "p3 <- ggplot(filteredData, aes(x = ", xvar, ", y = residuals", if (input$color != "None") sprintf(", color = %s", input$color), ")) +\n",
+      "  geom_point() +\n",
+      "  geom_hline(yintercept = 0, linetype = 'dashed') +\n",
+      "  ggtitle(paste('", xvar, " vs Residuals')) +\n",
+      "  xlab('", xvar, "') +\n",
+      "  ylab('Residuals')",
+      if (input$facet != "None") paste0(" +\n  facet_wrap(~ ", input$facet, ")"),
+      "\n\n",
+      "gridExtra::grid.arrange(p1, p2, p3, ncol = 2)"
+    )
+    
+    code
+  })
+  
+  output$residualsCode <- renderText({
+    req(residualsCode())
+    req(input$showCode)
+    residualsCode()
+  })
+  
+  output$Residuals <- renderPlot({
+    shiny::validate(
+      need(input$model != "None", "A statistical model must be selected before residuals can be calculated.")
+    )
+    
+    plotData <- filteredData()
+    xvar <- input$xvar
+    yvar <- input$yvar
+    
+    if (input$model == "None") {
+      "A statistical model must be selected before residuals can be calculated."
+    } else {
+      if (input$model == "Linear") {
+        myModel <- lm(as.formula(paste(yvar, "~", xvar)), data = plotData)
+      } else if (input$model == "Quadratic") {
+        myModel <- lm(as.formula(paste(yvar, "~ poly(", xvar, ", 2)")), data = plotData)
+      }
+      
+      plotData$residuals <- resid(myModel)
+      
+      p1 <- ggplot(plotData, aes_string(x = "residuals", color = if (input$color != "None") input$color else NULL)) +
+        geom_histogram(binwidth = 0.5) +
+        ggtitle("Histogram of Residuals") +
+        xlab("Residuals")
+      
+      p2 <- ggplot(plotData, aes_string(sample = "residuals", color = if (input$color != "None") input$color else NULL)) +
+        stat_qq() +
+        stat_qq_line() +
+        ggtitle("Normal Q-Q Plot of Residuals")
+      
+      p3 <- ggplot(plotData, aes_string(x = xvar, y = "residuals", color = if (input$color != "None") input$color else NULL)) +
+        geom_point() +
+        geom_hline(yintercept = 0, linetype = "dashed") +
+        ggtitle(paste(xvar, "vs Residuals")) +
+        xlab(xvar) +
+        ylab("Residuals")
+      
+      if (input$facet != "None") {
+        p1 <- p1 + facet_wrap(as.formula(paste("~", input$facet)))
+        p2 <- p2 + facet_wrap(as.formula(paste("~", input$facet)))
+        p3 <- p3 + facet_wrap(as.formula(paste("~", input$facet)))
+      }
+      
+      gridExtra::grid.arrange(p1, p2, p3, ncol = 2)
+    }
+  })
   
   
   # Download filtered data -----------------------------------------------------
