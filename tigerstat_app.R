@@ -24,7 +24,7 @@ data.all$Sex <- as.factor(data.all$Sex)
 
 # Filter out outliers
 data.all <- data.all %>%
-  filter(Age < 250 & Age > 0 &
+  filter(Age < 25 & Age > 0 &
          Size < 250 & Size > 0 &
          Weight < 750 & Weight > 0 &
          NoseBlack < 1 & NoseBlack > 0 &
