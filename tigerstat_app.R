@@ -7,13 +7,21 @@ library(readr)
 # Load game data 
 tigerstat_data <- readr::read_csv("https://stat2games.sites.grinnell.edu/data/tigerstat/getdata.php") 
 tigersampling_data <- readr::read_csv("https://stat2games.sites.grinnell.edu/data/tigersampling/getdata.php") 
+sample1 <- read_csv("TigerSample1.csv")
 
-# Add region to tiger stat data, setting to 1 for all entries
+# Add region to tiger stat data, setting to t for all entries
 tigerstat_data <- tigerstat_data %>%
-  mutate(Region = 1)
+  mutate(Region = 'T')
 
-# Combine the two dataset
+# Add columns to sample 1 data
+sample1 <- sample1 %>%
+  mutate(PlayerID = 'sample1', GroupID = 'sample1', GameNum = 0, Date = 0);
+colnames(sample1)[colnames(sample1) == "Length"] <- "Size"
+
+
+# Combine the three datasets
 data.all <- rbind(tigerstat_data, tigersampling_data)
+data.all <- rbind(data.all, sample1)
 
 data.all$Age <- as.numeric(data.all$Age)
 data.all$NoseBlack <- as.numeric(data.all$NoseBlack)
@@ -39,8 +47,6 @@ data.all$PlayerID <- tolower(data.all$PlayerID)
 data.all$GroupID <- tolower(data.all$GroupID)
 all_groups <- sort(unique(data.all$GroupID))
 all_players <- sort(unique(data.all$PlayerID))
-
-
 
 
 # Define UI for the app
