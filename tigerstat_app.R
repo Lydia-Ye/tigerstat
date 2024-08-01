@@ -3,14 +3,15 @@ library(ggplot2)
 library(dplyr)
 library(readr)
 
-
 # Load game data 
 tigerstat_data <- readr::read_csv("https://stat2games.sites.grinnell.edu/data/tigerstat/getdata.php") 
 tigersampling_data <- readr::read_csv("https://stat2games.sites.grinnell.edu/data/tigersampling/getdata.php") 
 sample1 <- read_csv("TigerSample1.csv")
 
-# Add region to tiger stat data, setting to t for all entries
+# Setting to region to T for tigerstat and sample 1 data
 tigerstat_data <- tigerstat_data %>%
+  mutate(Region = 'T')
+sample1 <- sample1 %>%
   mutate(Region = 'T')
 
 # Add columns to sample 1 data
@@ -32,11 +33,15 @@ data.all$Sex <- as.factor(data.all$Sex)
 
 # Filter out outliers
 data.all <- data.all %>%
-  filter(Age < 250 & Age > 0 &
-           Size < 250 & Size > 0 &
-           Weight < 750 & Weight > 0 &
-           NoseBlack < 1 & NoseBlack > 0 &
-           PawCircumference < 250 & PawCircumference < 250)
+  filter(Age < 25 & Age > 0 &
+         Size < 250 & Size > 0 &
+         Weight < 750 & Weight > 0 &
+         NoseBlack < 1 & NoseBlack > 0 &
+         PawCircumference < 250 & PawCircumference > 0)
+
+data.all <- data.all %>% 
+  filter(!(Size > 50 & Weight < 10) & 
+         !(Weight > 200 & Age < 1))
 
 data.all <- data.all %>%
   mutate(ArcsineNoseBlack = asin(sqrt(NoseBlack)))
